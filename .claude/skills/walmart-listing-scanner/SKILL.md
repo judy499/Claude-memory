@@ -23,11 +23,13 @@ Updates one Walmart item at a time (or a batch, one SKU per feed item) so it mat
 | `walmart_get_item` | One SKU: productType, GTIN/UPC, itemId, price, status. |
 | `walmart_listing_quality` | With `sku`: scores, every content attribute's **current value** and its issues. Without: seller-level scores. This replaces reading the Seller Center edit form. |
 | `walmart_api_request` | `POST /v3/items/spec` to fetch the current spec (version, attribute names, enums) for a product type. Other read endpoints as needed. |
-| `walmart_submit_feed` | **The write path.** Submit the MP_MAINTENANCE feed (see `references/feed-template.md`). |
+| `walmart_submit_feed` | Intended write path for the MP_MAINTENANCE feed (see `references/feed-template.md`). **Currently broken, see below.** |
 | `walmart_feed_status` | Check processing and per-item errors. |
 | `walmart_search_catalog` | Find competitor listings or confirm a GTIN match. |
 
 **Do not use `walmart_edit_item` for live writes.** It hard-codes spec version `5.0.20240517-04_08_27` and puts `productName` under `Orderable`. Walmart rejects that version (`ERR_INT_SYS_0801003`, "ensure the feed version is supported"); every API feed sent that way in Nov 2026 failed. Its `dryRun` is still handy to get the skeleton. Re-check this if the connector is updated.
+
+**Status 17 Nov 2026: no working API write path for content yet.** A correctly built 5.0.20260829 feed sent with `walmart_submit_feed` (with and without `subset`) was rejected at ingestion with `ERR_INT_SYS_0801003`, field `WM_SPEC_MODE` (feeds 18E8EA7CCBFC502AAC977D756C4216BA@AX8BBwA, 18E8EA8E6D095BFEAB5C1E0480FA6F3F@AX8BBgA). `WM_SPEC_MODE` is not a feed field, so the connector most likely needs to send it as a request header/parameter for the 5.0 spec. Rejected feeds never touch the item. Until the connector is fixed: do steps 1 to 6 through the connector, then apply the approved values in Seller Center (Catalog > Edit item), and confirm via `walmart_feed_status` that the SELLER_CENTER feed reaches PROCESSED / SUCCESS. Don't retry blind header variations on the live account.
 
 ## Step 1: Pick the item and read Listing Quality
 1. `walmart_get_item(sku)` for productType, GTIN, itemId, publishedStatus. Skip non-Dunhill brands.
