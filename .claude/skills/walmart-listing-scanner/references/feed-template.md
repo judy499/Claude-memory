@@ -5,11 +5,9 @@ Checked against `POST /v3/items/spec` on 17 Nov 2026 for product type "Flavored 
 ```json
 {
   "MPItemFeedHeader": {
-    "version": "5.0.20260829-12_49_39",
-    "mart": "WALMART_US",
+    "businessUnit": "WALMART_US",
     "locale": "en",
-    "processMode": "MERGE",
-    "subset": "EXTERNAL"
+    "version": "5.0.20260829-12_49_39-api"
   },
   "MPItem": [
     {
@@ -41,9 +39,11 @@ Notes
 - Include only the keys you are changing. Remove the rest.
 - `Orderable` requires `sku` and `productIdentifiers`. Never add `price`.
 - In this spec version `productName`, `brand` and `mainImageUrl` live under `Visible`, not `Orderable`.
-- Header fields allowed by the spec: version, mart, locale, processMode (MERGE/REPLACE), subset (INTERNAL/EXTERNAL), sellingChannel, feedDate, requestId, requestBatchId, subCategory, feedType. None are marked required; `version` is an enum with one allowed value.
-- 17 Nov 2026 live test: this header (and the same without `subset`) was rejected with ERR_INT_SYS_0801003 on field WM_SPEC_MODE, a connector-side setting. The feed body passed the spec validator. Re-test after any connector update.
-- The header above has not yet been confirmed with a live submit. The first live feed is the test: if it errors on a header field, read the ingestion error and adjust (e.g. drop `subset`, or add `"sellingChannel": "maintenance"`), then update this file.
+- **Confirmed header (17 Nov 2026 live tests): `businessUnit`, `locale`, `version` with the `-api` suffix. Nothing else.** The Get Spec response lists mart/processMode/subset etc., but Walmart's ingestion rejects `processMode` ("not a valid field") and requires `businessUnit`. Trust ingestion errors over the spec file for the header.
+- Partial update is the default for MP_MAINTENANCE: only the attributes you send change.
+- 17 Nov 2026: without the `-api` suffix, feeds are rejected instantly with ERR_INT_SYS_0801003 on field WM_SPEC_MODE.
+- **API feeds need the `-api` suffix on the version** (`5.0.20260829-12_49_39-api`). Without it Walmart rejects the feed instantly on WM_SPEC_MODE. With it, the 17 Nov test feed 18E8EB0709D852B8B8B169A606F96D5E@AX8BBgA passed ingestion (outcome: see SKILL.md status note). Seller Center feeds show the version without the suffix.
+- When fetching the spec, `/v3/items/spec` accepted the version without the suffix.
 - Seller Center feeds that succeeded in Nov 2026 used version `5.0.20260829-12_49_39`. API feeds on `5.0.20240517-04_08_27` failed with `ERR_INT_SYS_0801003`.
 
 Listing Quality name → spec key (examples)

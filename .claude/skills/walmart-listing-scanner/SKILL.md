@@ -14,7 +14,7 @@ Updates one Walmart item at a time (or a batch, one SKU per feed item) so it mat
 - **Our brands only.** Copy edits only for our own brands (Gourmanity, 4YoreElves, SOV sub-brands, Magic Seasoning Blends etc.). Third-party/distributor SKUs (Brach's, Barry's, COMBOS, Monini, PFG items) are skipped: Walmart returns "Only registered brand owners can update this content". Brand name changes always need Walmart support.
 - **Confirm before any live write.** Show Judy the before/after table and the exact feed JSON, and get a yes before `walmart_submit_feed`. Factual attribute fixes backed by Amazon can be bundled in. Anything compliance-related (FSMA 204, Prop 65 text, allergens) needs her explicit OK.
 - **One pending feed per SKU.** Before submitting, check `walmart_feed_status` (no feedId) for a recent MP_MAINTENANCE feed for that SKU still in RECEIVED / INPROGRESS, or with `itemsProcessing > 0`. If there is one, wait. Do not stack edits.
-- **Send only what changes.** Use processMode `MERGE` and include only the attributes being changed, so nothing else on the item is wiped.
+- **Send only what changes.** MP_MAINTENANCE is a partial update: include only the attributes being changed. Do not add `processMode` (Walmart rejects it).
 
 ## Connector tools
 | Tool | Use |
@@ -29,7 +29,7 @@ Updates one Walmart item at a time (or a batch, one SKU per feed item) so it mat
 
 **Do not use `walmart_edit_item` for live writes.** It hard-codes spec version `5.0.20240517-04_08_27` and puts `productName` under `Orderable`. Walmart rejects that version (`ERR_INT_SYS_0801003`, "ensure the feed version is supported"); every API feed sent that way in Nov 2026 failed. Its `dryRun` is still handy to get the skeleton. Re-check this if the connector is updated.
 
-**Status 17 Nov 2026: no working API write path for content yet.** A correctly built 5.0.20260829 feed sent with `walmart_submit_feed` (with and without `subset`) was rejected at ingestion with `ERR_INT_SYS_0801003`, field `WM_SPEC_MODE` (feeds 18E8EA7CCBFC502AAC977D756C4216BA@AX8BBwA, 18E8EA8E6D095BFEAB5C1E0480FA6F3F@AX8BBgA). `WM_SPEC_MODE` is not a feed field, so the connector most likely needs to send it as a request header/parameter for the 5.0 spec. Rejected feeds never touch the item. Until the connector is fixed: do steps 1 to 6 through the connector, then apply the approved values in Seller Center (Catalog > Edit item), and confirm via `walmart_feed_status` that the SELLER_CENTER feed reaches PROCESSED / SUCCESS. Don't retry blind header variations on the live account.
+**Status 17 Nov 2026: fix found, pending confirmation.** The header `version` must carry the `-api` suffix (`5.0.20260829-12_49_39-api`); the first test with it passed ingestion (feed 18E8EB0709D852B8B8B169A606F96D5E@AX8BBgA). Earlier, a 5.0.20260829 feed without the suffix sent with `walmart_submit_feed` (with and without `subset`) was rejected at ingestion with `ERR_INT_SYS_0801003`, field `WM_SPEC_MODE` (feeds 18E8EA7CCBFC502AAC977D756C4216BA@AX8BBwA, 18E8EA8E6D095BFEAB5C1E0480FA6F3F@AX8BBgA). `WM_SPEC_MODE` is not a feed field, so the connector most likely needs to send it as a request header/parameter for the 5.0 spec. Rejected feeds never touch the item. Until the connector is fixed: do steps 1 to 6 through the connector, then apply the approved values in Seller Center (Catalog > Edit item), and confirm via `walmart_feed_status` that the SELLER_CENTER feed reaches PROCESSED / SUCCESS. Don't retry blind header variations on the live account. A connector patch (correct default version, `mart` + `processMode: MERGE` header, content fields under Visible) makes `walmart_edit_item` usable again once deployed.
 
 ## Step 1: Pick the item and read Listing Quality
 1. `walmart_get_item(sku)` for productType, GTIN, itemId, publishedStatus. Skip non-Dunhill brands.
@@ -78,7 +78,7 @@ Listing Quality uses different names (`product_short_description`, `food_form`, 
 - `mainImageUrl` must be the product alone on white. `productSecondaryImageURL` **replaces the full secondary set**, so send every image you want kept, in order. Min 1500 x 1500 px for zoom; 2200 x 2200 recommended.
 
 ## Step 7: Build, confirm, submit, verify
-1. Build the feed from `references/feed-template.md` (current header version, `MERGE`, `Orderable` with only `sku` + `productIdentifiers`, `Visible.<productType>` with the changed keys). Validate it against the spec with `scripts/spec_summary.py --validate`.
+1. Build the feed from `references/feed-template.md` (header: `businessUnit`, `locale`, `version` with the `-api` suffix; `Orderable` with only `sku` + `productIdentifiers`, `Visible.<productType>` with the changed keys). Validate it against the spec with `scripts/spec_summary.py --validate`.
 2. Show Judy a before/after table (attribute, old, new, source) plus the feed JSON. Wait for yes.
 3. `walmart_submit_feed(feedType="MP_MAINTENANCE", feed=...)`. Keep the feedId.
 4. `walmart_feed_status(feedId)` until `PROCESSED`. If `ERROR` with an ingestion error, read the description, fix, and resubmit (that feed never reached the item). If `itemsFailed > 0`, read `itemDetails.itemIngestionStatus[].ingestionErrors` and fix only those fields.

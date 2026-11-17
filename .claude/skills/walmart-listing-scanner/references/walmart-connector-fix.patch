@@ -1,0 +1,72 @@
+diff --git a/README.md b/README.md
+index 2572f21..bd44f18 100644
+--- a/README.md
++++ b/README.md
+@@ -20,7 +20,7 @@ A remote MCP server that lets Claude read and edit your Walmart Marketplace acco
+ 2. Render → New → Blueprint → pick the repo (uses `render.yaml`).
+ 3. Fill in `WALMART_CLIENT_ID` and `WALMART_CLIENT_SECRET` (Seller Center → API Key Management).
+    `CONNECTOR_SECRET` is generated for you; copy it from the Environment tab.
+-4. Optional: `WALMART_ENV=sandbox` to use the sandbox, `WALMART_MAINTENANCE_SPEC_VERSION` to change the item spec version.
++4. Optional: `WALMART_ENV=sandbox` to use the sandbox, `WALMART_MAINTENANCE_SPEC_VERSION` to change the item spec version (API feeds need the `-api` suffix, e.g. `5.0.20260829-12_49_39-api`).
+ 
+ ## Add to Claude
+ claude.ai → Settings → Connectors → Add custom connector →
+diff --git a/src/server.js b/src/server.js
+index 19ea7a2..b698dcc 100644
+--- a/src/server.js
++++ b/src/server.js
+@@ -9,7 +9,7 @@ import { walmartRequest, submitFeed, getFeedStatus, waitForFeed } from "./walmar
+ const PORT = process.env.PORT || 3000;
+ const CONNECTOR_SECRET = process.env.CONNECTOR_SECRET;
+ // Item spec version for MP_MAINTENANCE feeds. Check Walmart's Get Spec API if edits are rejected for version.
+-const MAINTENANCE_SPEC_VERSION = process.env.WALMART_MAINTENANCE_SPEC_VERSION || "5.0.20240517-04_08_27";
++const MAINTENANCE_SPEC_VERSION = process.env.WALMART_MAINTENANCE_SPEC_VERSION || "5.0.20260829-12_49_39-api";
+ 
+ // ---------- helpers ----------
+ const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data, null, 2) }] });
+@@ -158,8 +158,9 @@ function buildServer() {
+       description:
+         "LIVE CHANGE: edit content and attributes of an existing item (title, description, key features, images, attributes) " +
+         "using a one-item MP_MAINTENANCE feed. Send only the fields you are changing. " +
+-        "'orderable' holds offer-level fields (e.g. productName, brand, mainImageUrl). " +
+-        "'visible' holds product-type attributes (e.g. shortDescription, keyFeatures, productSecondaryImageURL, and category attributes) " +
++        "'orderable' holds offer-level fields only (e.g. productIdentifiers, fulfillmentLagTime, ShippingWeight). " +
++        "'visible' holds content and product-type attributes (e.g. productName, brand, mainImageUrl, shortDescription, keyFeatures, " +
++        "productSecondaryImageURL, and category attributes) " +
+         "and requires productType (the item's Walmart product type, e.g. 'Seasonings & Spices'). " +
+         "Use dryRun=true to preview the exact feed without sending it. By default waits up to 90s for Walmart's result. " +
+         "Changes can take a few hours to appear on walmart.com after the feed is processed.",
+@@ -179,17 +180,30 @@ function buildServer() {
+       if (!orderable && !visible) throw new Error("Provide at least one of 'orderable' or 'visible'.");
+       if (visible && !productType) throw new Error("'productType' is required when editing 'visible' attributes.");
+ 
+-      const item = { Orderable: { sku, ...(orderable ?? {}) } };
++      // In the 5.0 spec, content fields live under Visible.<productType>, not Orderable.
++      const CONTENT_KEYS = ["productName", "brand", "mainImageUrl"];
++      const orderableFields = { ...(orderable ?? {}) };
++      const visibleFields = { ...(visible ?? {}) };
++      for (const k of CONTENT_KEYS) {
++        if (k in orderableFields) {
++          visibleFields[k] = orderableFields[k];
++          delete orderableFields[k];
++        }
++      }
++      if (Object.keys(visibleFields).length && !productType) {
++        throw new Error("'productType' is required for content fields (productName, brand, mainImageUrl and 'visible' attributes).");
++      }
++      const item = { Orderable: { sku, ...orderableFields } };
+       if (productId) {
+         item.Orderable.productIdentifiers = { productIdType: productIdType ?? "GTIN", productId };
+       }
+-      if (visible) item.Visible = { [productType]: visible };
++      if (Object.keys(visibleFields).length) item.Visible = { [productType]: visibleFields };
+ 
+       const feed = {
+         MPItemFeedHeader: {
+           businessUnit: "WALMART_US",
+           locale: "en",
+-          version: MAINTENANCE_SPEC_VERSION,
++          version: MAINTENANCE_SPEC_VERSION, // API feeds need the "-api" suffix
+         },
+         MPItem: [item],
+       };

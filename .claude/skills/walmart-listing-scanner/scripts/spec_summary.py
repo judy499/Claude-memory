@@ -59,8 +59,8 @@ def validate(spec, feed_path):
     errors = []
     hdr_enum = spec["properties"]["MPItemFeedHeader"]["properties"]["version"].get("enum", [])
     version = feed.get("MPItemFeedHeader", {}).get("version")
-    if hdr_enum and version not in hdr_enum:
-        errors.append(f"header version {version!r} not in {hdr_enum}")
+    if hdr_enum and version not in [v + "-api" for v in hdr_enum]:
+        errors.append(f"header version {version!r} should be one of {[v + '-api' for v in hdr_enum]} (API feeds need the -api suffix)")
     orderable_spec = spec["properties"]["MPItem"]["items"]["properties"]["Orderable"]
     vtypes = visible_types(spec)
     for item in feed.get("MPItem", []):
