@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "mcp__walmart"
+      "mcp__walmart__walmart_get_item",
+      "mcp__walmart__walmart_list_items",
+      "mcp__walmart__walmart_search_catalog",
+      "mcp__walmart__walmart_listing_quality",
+      "mcp__walmart__walmart_get_inventory",
+      "mcp__walmart__walmart_get_order",
+      "mcp__walmart__walmart_list_orders",
+      "mcp__walmart__walmart_feed_status"
     ]
   }
 }
