@@ -15,6 +15,7 @@ Imported from my claude.ai chat memory. Claude Code reads this at the start of e
 - "Warm but professional customer correspondence." In customer service, "Warm but not excessively apologetic tone."
 - Customer service emails: when I'm already happy with a draft, make "targeted minimal edits."
 - Customer-facing emails across brands are signed "Lesley" (GMP correspondence too).
+- Emails sent as Judy: don't type a sign-off ("Kind regards, Judy Katz" etc.). Her Gmail signature handles it; when sending via the Gmail tools, set includeSignature: true instead.
 - Retail/distributor cold emails: personalised, not spammy. No generic subject lines like "quick question" or teaser questions. Use the "New supplier: [brand] ..." subject format.
 - My own writing style is shown in the GD winter clothing proposal.
 
